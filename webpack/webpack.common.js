@@ -93,7 +93,8 @@ module.exports = {
       },
       {
         test: /\.less$/,
-        include: /node_modules\/antd|@ant-design|@formily/,
+        // 同时匹配 / 与 \，兼容 Windows 下的反斜杠路径
+        include: /node_modules[\\/](antd|@ant-design|@formily)|@ant-design|@formily/,
         use: [
           {
             loader: 'style-loader',
