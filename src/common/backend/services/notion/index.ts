@@ -1,16 +1,17 @@
 import { ServiceMeta } from '@/common/backend';
 import Service from './service';
+import Form from './form';
 
 export default (): ServiceMeta => {
   return {
     name: 'Notion',
-    icon: 'https://www.notion.so/images/favicon.ico',
+    icon: 'https://app.notion.com/images/favicon.ico',
     type: 'notion',
-    homePage: 'https://www.notion.so/',
+    homePage: 'https://app.notion.com/',
     service: Service,
+    form: Form,
     permission: {
-      origins: ['https://www.notion.so/*'],
-      permissions: ['cookies'],
+      origins: ['https://api.notion.com/*'],
     },
   };
 };

@@ -132,7 +132,7 @@ const model = new DvaModelBuilder(defaultState, 'clipper')
           );
           return;
         }
-        throw new Error('Filed to load Repositories,Unauthorized.');
+        throw new Error(error.message || 'Filed to load Repositories,Unauthorized.');
       } else {
         throw error;
       }
