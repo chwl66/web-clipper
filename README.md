@@ -23,6 +23,7 @@ You can use Web Clipper to save anything on the web to anywhere.
 - [Yuque](https://www.yuque.com)
 - [Buildin.AI](https://buildin.ai/product)
 - [Notion](https://app.notion.com/)
+- [EdgeEver](https://edgeever.org/)
 - [Youdao](https://note.youdao.com/)
 - [OneNote](https://www.onenote.com/)
 - [Bear](https://bear.app)
