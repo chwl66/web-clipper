@@ -25,6 +25,10 @@ export interface IGetFormRequestOptions extends BaseRequestOptions {
 export interface IPutRequestOptions extends BaseRequestOptions {
   method: 'put';
   data: any;
+  /**
+   * 默认按 json 序列化；传 'text' 时原样作为 body（例如上传 Blob 到对象存储）
+   */
+  requestType?: 'json' | 'form' | 'text';
 }
 
 export type TRequestOption =
