@@ -14,7 +14,10 @@ export interface IPostFormRequestOptions extends BaseRequestOptions {
 }
 export interface IPostRequestOptions extends BaseRequestOptions {
   method: 'post';
-  requestType: 'json';
+  /**
+   * json：JSON 序列化后发送；text：原样发送 body（上传二进制、纯文本等）
+   */
+  requestType: 'json' | 'text';
   data: any;
 }
 
@@ -53,7 +56,12 @@ export type RequestInterceptor = (
 export type ResponseInterceptor = (data: unknown) => unknown;
 
 export interface IExtendRequestHelper {
-  post<T>(url: string, options: Omit<IPostRequestOptions, 'method' | 'requestType'>): Promise<T>;
+  post<T>(
+    url: string,
+    options: Omit<IPostRequestOptions, 'method' | 'requestType'> & {
+      requestType?: 'json' | 'text';
+    }
+  ): Promise<T>;
   postForm<T>(
     url: string,
     options: Omit<IPostFormRequestOptions, 'method' | 'requestType'>

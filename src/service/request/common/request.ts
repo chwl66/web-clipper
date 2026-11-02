@@ -15,11 +15,16 @@ export class RequestHelper implements IExtendRequestHelper {
     //
   }
 
-  post<T>(url: string, options: Omit<IPostRequestOptions, 'method' | 'requestType'>) {
+  post<T>(
+    url: string,
+    options: Omit<IPostRequestOptions, 'method' | 'requestType'> & {
+      requestType?: 'json' | 'text';
+    }
+  ) {
     return this.request<T>(url, {
       ...options,
       method: 'post',
-      requestType: 'json',
+      requestType: options.requestType || 'json',
     });
   }
 

@@ -42,7 +42,8 @@ class BasicRequestService implements IRequestService {
         return this.requestMethod.post(url, {
           headers: options.headers,
           data: options.data,
-          requestType: options.requestType,
+          // umi-request 类型只认 json / form，但运行时支持 'text'（原样发送 body）
+          requestType: options.requestType as 'json' | 'form' | undefined,
         });
       }
       default: {
