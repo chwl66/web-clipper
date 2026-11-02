@@ -1,10 +1,14 @@
+import localeService from '@/common/locales';
 import { ImageHostingServiceMeta } from '../interface';
 import Service from './service';
 import Form from './form';
 
 export default (): ImageHostingServiceMeta => {
   return {
-    name: 'S3 Storage',
+    name: localeService.format({
+      id: 'backend.imageHosting.s3.name',
+      defaultMessage: 'S3 Storage',
+    }),
     icon: 'icons/s3.svg',
     type: 's3',
     service: Service,
