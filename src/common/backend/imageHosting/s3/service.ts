@@ -1,11 +1,10 @@
 import { IBasicRequestService } from '@/service/common/request';
-import { RequestHelper } from '@/service/request/common/request';
 import { UploadImageRequest, ImageHostingService } from '../interface';
 import { Base64ImageToBlob } from '@/common/blob';
 import { generateUuid } from '@web-clipper/shared/lib/uuid';
 import md5 from '@web-clipper/shared/lib/md5';
 import Container from 'typedi';
-import { encodeS3Key, sha256Hex, signS3Request } from './sigv4';
+import { normalizePrefix, S3Client } from '../../s3/client';
 
 export interface S3ImageHostingOption {
   /** 服务地址，例如 https://s3.us-east-1.amazonaws.com 或 https://<account>.r2.cloudflarestorage.com */
@@ -40,37 +39,19 @@ function getExtension(mimeType?: string, fallback = 'png') {
   return MIME_EXTENSIONS[(mimeType || '').toLowerCase()] || fallback;
 }
 
-function normalizeEndpoint(endpoint?: string) {
-  const trimmed = (endpoint || '').trim().replace(/\/+$/, '');
-  if (!trimmed) {
-    return '';
-  }
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-}
-
-function normalizePrefix(prefix?: string) {
-  const trimmed = (prefix || '').trim().replace(/^\/+|\/+$/g, '');
-  return trimmed ? `${trimmed}/` : '';
-}
-
 export default class S3ImageHostingService implements ImageHostingService {
-  private config: S3ImageHostingOption;
+  private client: S3Client;
+  private pathPrefix: string;
+  private publicUrl: string;
 
   constructor(config: S3ImageHostingOption) {
-    this.config = {
-      endpoint: normalizeEndpoint(config?.endpoint),
-      region: (config?.region || '').trim(),
-      bucket: (config?.bucket || '').trim(),
-      accessKeyId: (config?.accessKeyId || '').trim(),
-      secretAccessKey: (config?.secretAccessKey || '').trim(),
-      pathPrefix: normalizePrefix(config?.pathPrefix),
-      publicUrl: (config?.publicUrl || '').trim().replace(/\/+$/, ''),
-      forcePathStyle: config?.forcePathStyle !== false,
-    };
+    this.client = new S3Client(config);
+    this.pathPrefix = normalizePrefix(config?.pathPrefix);
+    this.publicUrl = (config?.publicUrl || '').trim();
   }
 
   getId = () => {
-    return md5(`${this.config.endpoint}|${this.config.bucket}`);
+    return md5(`${this.client.endpoint}|${this.client.bucket}`);
   };
 
   uploadImage = async ({ data }: UploadImageRequest) => {
@@ -90,85 +71,12 @@ export default class S3ImageHostingService implements ImageHostingService {
       String(date.getMonth() + 1).padStart(2, '0'),
       String(date.getDate()).padStart(2, '0'),
     ].join('');
-    return `${this.config.pathPrefix}${folder}/${generateUuid()}.${getExtension(blob.type)}`;
-  }
-
-  private buildObjectUrl(key: string) {
-    // key 先按 AWS 规则编码，保证实际请求路径与签名用的 canonical URI 一致
-    const encodedKey = encodeS3Key(key);
-    const url = new URL(this.config.endpoint);
-    if (this.config.forcePathStyle) {
-      return `${url.origin}/${this.config.bucket}/${encodedKey}`;
-    }
-    return `${url.protocol}//${this.config.bucket}.${url.host}/${encodedKey}`;
-  }
-
-  private buildPublicUrl(key: string) {
-    const encodedKey = encodeS3Key(key);
-    if (this.config.publicUrl) {
-      return `${this.config.publicUrl}/${encodedKey}`;
-    }
-    return this.buildObjectUrl(key);
-  }
-
-  private ensureConfig() {
-    if (
-      !this.config.endpoint ||
-      !this.config.region ||
-      !this.config.bucket ||
-      !this.config.accessKeyId ||
-      !this.config.secretAccessKey
-    ) {
-      throw new Error('S3 bucket is not configured properly, please check endpoint / region / bucket / keys.');
-    }
+    return `${this.pathPrefix}${folder}/${generateUuid()}.${getExtension(blob.type)}`;
   }
 
   private uploadBlob = async (blob: Blob): Promise<string> => {
-    this.ensureConfig();
     const key = this.buildKey(blob);
-    const url = this.buildObjectUrl(key);
-    const payloadHash = await sha256Hex(await blob.arrayBuffer());
-    const signedHeaders = await signS3Request({
-      method: 'PUT',
-      url,
-      region: this.config.region,
-      accessKeyId: this.config.accessKeyId,
-      secretAccessKey: this.config.secretAccessKey,
-      payloadHash,
-    });
-
-    const request = new RequestHelper({
-      request: Container.get(IBasicRequestService),
-    });
-
-    try {
-      await request.put(url, {
-        data: blob,
-        // text 让 umi-request 原样使用 body（默认 json 会把 Blob 序列化成 "{}"）
-        requestType: 'text',
-        headers: {
-          ...signedHeaders,
-          'Content-Type': blob.type || 'application/octet-stream',
-        },
-      });
-    } catch (error) {
-      throw new Error(this.describeError(error));
-    }
-
-    return this.buildPublicUrl(key);
+    await this.client.putObject(key, blob, blob.type || 'application/octet-stream');
+    return this.client.buildPublicUrl(key, this.publicUrl);
   };
-
-  private describeError(error: any): string {
-    const response = error?.response || {};
-    const status: number | undefined = response.status;
-    const body: string = typeof response.data === 'string' ? response.data : '';
-    if (status === 403) {
-      return 'S3 upload failed (403): please check the access key / secret key and the bucket policy.';
-    }
-    if (!status) {
-      return 'S3 upload failed: request was blocked, please add this endpoint to the bucket CORS configuration.';
-    }
-    const detail = body.replace(/\s+/g, ' ').slice(0, 200);
-    return `S3 upload failed (${status})${detail ? `: ${detail}` : ''}`;
-  }
 }
